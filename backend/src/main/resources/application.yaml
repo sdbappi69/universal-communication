@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: universalCommunications
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+#  ai:
+#    openai:
+#      api-key: ${AZURE_OPENAI_KEY}
+#      base-url: ${AZURE_OPENAI_ENDPOINT}
+#      chat:
+#        options:
+#          deployment-name: gpt-4o
+#          model: gpt-4o
+#      # Azure-specific
+#      azure:
+#        enabled: true
+
+  mongodb:
+    uri: ${MONGODB_CONNECTION_STRING}
