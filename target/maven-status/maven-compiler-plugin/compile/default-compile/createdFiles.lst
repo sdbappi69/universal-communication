@@ -1,8 +1,0 @@
-com/planet0088/universalCommunications/controller/CommunicateController.class
-com/planet0088/universalCommunications/model/CommunicateRequest.class
-com/planet0088/universalCommunications/model/enums/InputType.class
-com/planet0088/universalCommunications/service/ContentTranslator.class
-com/planet0088/universalCommunications/UniversalCommunicationsApplication.class
-com/planet0088/universalCommunications/service/impl/TextContentTranslator.class
-com/planet0088/universalCommunications/model/ContentChunk.class
-com/planet0088/universalCommunications/model/enums/OutputType.class

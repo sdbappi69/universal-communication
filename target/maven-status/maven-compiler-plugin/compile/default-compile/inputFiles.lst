@@ -1,8 +1,0 @@
-/Users/sdbappi/Documents/Projects/universalCommunications/backend/src/main/java/com/planet0088/universalCommunications/UniversalCommunicationsApplication.java
-/Users/sdbappi/Documents/Projects/universalCommunications/backend/src/main/java/com/planet0088/universalCommunications/controller/CommunicateController.java
-/Users/sdbappi/Documents/Projects/universalCommunications/backend/src/main/java/com/planet0088/universalCommunications/model/CommunicateRequest.java
-/Users/sdbappi/Documents/Projects/universalCommunications/backend/src/main/java/com/planet0088/universalCommunications/model/ContentChunk.java
-/Users/sdbappi/Documents/Projects/universalCommunications/backend/src/main/java/com/planet0088/universalCommunications/model/enums/InputType.java
-/Users/sdbappi/Documents/Projects/universalCommunications/backend/src/main/java/com/planet0088/universalCommunications/model/enums/OutputType.java
-/Users/sdbappi/Documents/Projects/universalCommunications/backend/src/main/java/com/planet0088/universalCommunications/service/ContentTranslator.java
-/Users/sdbappi/Documents/Projects/universalCommunications/backend/src/main/java/com/planet0088/universalCommunications/service/impl/TextContentTranslator.java
