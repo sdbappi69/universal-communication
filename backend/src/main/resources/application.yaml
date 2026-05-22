@@ -21,4 +21,5 @@ spring:
 #        enabled: true
 
   mongodb:
-    uri: ${MONGODB_CONNECTION_STRING}
+    uri: ${MONGODB_CONNECTION_STRING:mongodb://localhost:27017/universal_communications_db}
+    auto-index-creation: true

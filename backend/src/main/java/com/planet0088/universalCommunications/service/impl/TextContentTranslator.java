@@ -4,26 +4,22 @@ import com.planet0088.universalCommunications.model.CommunicateRequest;
 import com.planet0088.universalCommunications.model.ContentChunk;
 import com.planet0088.universalCommunications.model.enums.OutputType;
 import com.planet0088.universalCommunications.service.ContentTranslator;
+import com.planet0088.universalCommunications.service.SessionService;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Sprint 1 implementation: TEXT input → TEXT output only.
- *
- * Stubs for other input/output types will be added in subsequent sprints.
- * Unsupported input types fall through to the text pipeline for now,
- * using the raw payload as-is — this keeps the SSE pipeline testable
- * end-to-end without blocking Sprint 1 on preprocessor work.
- */
 @Service
 public class TextContentTranslator implements ContentTranslator {
 
     private final ChatClient chatClient;
+    private final SessionService sessionService;
 
-    public TextContentTranslator(ChatClient.Builder chatClientBuilder) {
+    public TextContentTranslator(ChatClient.Builder chatClientBuilder,
+                                 SessionService sessionService) {
         this.chatClient = chatClientBuilder
                 .defaultSystem("""
                         You are an accessible communication assistant.
@@ -31,29 +27,46 @@ public class TextContentTranslator implements ContentTranslator {
                         to be as inclusive and easy to understand as possible.
                         """)
                 .build();
+        this.sessionService = sessionService;
     }
 
     @Override
     public Flux<ContentChunk> translate(CommunicateRequest request) {
-        // seq counter per request — not per session, no shared state needed here
         AtomicInteger seq = new AtomicInteger(0);
+        StringBuilder responseAccumulator = new StringBuilder();
+        AtomicLong startTime = new AtomicLong(System.currentTimeMillis());
 
-        return chatClient
-                .prompt()
-                .user(request.payload())
-                .stream()
-                .content()                              // Flux<String> — one token per element
-                .filter(token -> !token.isBlank())      // drop whitespace-only tokens
-                .map(token -> new ContentChunk(
-                        request.sessionId(),
-                        OutputType.TEXT,
-                        token,
-                        seq.getAndIncrement()
-                ))
-                .doOnError(e -> {
-                    // Log but don't swallow — let the controller's onErrorResume handle it
-                    System.err.printf("[ContentTranslator] Stream error for session %s: %s%n",
-                            request.sessionId(), e.getMessage());
-                });
+        return sessionService.recordUserTurn(request)    // write user turn first
+                .thenMany(
+                        chatClient
+                                .prompt()
+                                .user(request.payload())
+                                .stream()
+                                .content()
+                                .filter(token -> !token.isBlank())
+                                .map(token -> {
+                                    responseAccumulator.append(token);  // accumulate for final write
+                                    return new ContentChunk(
+                                            request.sessionId(),
+                                            OutputType.TEXT,
+                                            token,
+                                            seq.getAndIncrement()
+                                    );
+                                })
+                                .doOnComplete(() ->
+                                        // Fire-and-forget — subscribe() detaches from the main stream
+                                        // so a slow Mongo write never delays the SSE response
+                                        sessionService.recordAssistantTurn(
+                                                request.sessionId(),
+                                                responseAccumulator.toString(),
+                                                request,
+                                                System.currentTimeMillis() - startTime.get()
+                                        ).subscribe()
+                                )
+                                .doOnError(e ->
+                                        System.err.printf("[ContentTranslator] Stream error for session %s: %s%n",
+                                                request.sessionId(), e.getMessage())
+                                )
+                );
     }
 }
