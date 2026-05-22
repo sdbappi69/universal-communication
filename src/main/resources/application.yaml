@@ -1,6 +1,11 @@
 spring:
   application:
     name: universalCommunications
+  webflux:
+    static-path-pattern: /**
+    web:
+      resources:
+        static-locations: classpath:/static/
 
   ai:
     openai:
@@ -23,3 +28,9 @@ spring:
   mongodb:
     uri: ${MONGODB_CONNECTION_STRING:mongodb://localhost:27017/universal_communications_db}
     auto-index-creation: true
+
+uacp:
+  token:
+    history-budget: 2000         # max tokens for conversation history
+    response-budget: 1000        # max tokens for model response
+    encoding-name: o200k_base    # gpt-4o-mini encoding

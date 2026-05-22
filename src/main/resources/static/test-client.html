@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>UACP Test Client</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
+        h2 { color: #569cd6; margin-bottom: 16px; }
+        .row { display: flex; gap: 12px; margin-bottom: 10px; align-items: center; }
+        label { color: #9cdcfe; width: 100px; flex-shrink: 0; }
+        input, select { background: #2d2d2d; border: 1px solid #444; color: #d4d4d4;
+                        padding: 6px 10px; border-radius: 4px; flex: 1; font-family: monospace; }
+        textarea { background: #2d2d2d; border: 1px solid #444; color: #d4d4d4;
+                   padding: 8px; border-radius: 4px; width: 100%; font-family: monospace;
+                   resize: vertical; }
+        button { background: #0e639c; color: white; border: none; padding: 8px 20px;
+                 border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 14px; }
+        button:hover { background: #1177bb; }
+        button:disabled { background: #444; cursor: not-allowed; }
+        #output-box { background: #0d0d0d; border: 1px solid #333; border-radius: 4px;
+                      padding: 14px; margin-top: 16px; min-height: 120px; max-height: 420px;
+                      overflow-y: auto; white-space: pre-wrap; line-height: 1.6; font-size: 14px; }
+        #status { font-size: 12px; margin-top: 8px; }
+        .ok { color: #4ec9b0; }
+        .err { color: #f44747; }
+        .dim { color: #666; }
+        .token { color: #ce9178; }
+    </style>
+</head>
+<body>
+    <h2>⚡ UACP Stream Test Client</h2>
+
+    <div class="row">
+        <label>Session ID</label>
+        <input id="sessionId" value="test-001" />
+        <button onclick="newSession()" style="flex:0;padding:6px 12px;font-size:12px">New</button>
+    </div>
+    <div class="row">
+        <label>Input Type</label>
+        <select id="inputType">
+            <option>TEXT</option>
+            <option>VOICE</option>
+            <option>VIDEO</option>
+            <option>SYMBOL</option>
+            <option>TOUCH</option>
+        </select>
+    </div>
+    <div class="row">
+        <label>Output Types</label>
+        <select id="outputType">
+            <option>TEXT</option>
+            <option>VOICE</option>
+            <option>SIGN</option>
+            <option>HAPTIC</option>
+        </select>
+    </div>
+    <div class="row" style="align-items:flex-start">
+        <label style="padding-top:6px">Payload</label>
+        <textarea id="payload" rows="3" placeholder="Type your message..."></textarea>
+    </div>
+    <div class="row">
+        <label></label>
+        <button id="sendBtn" onclick="sendRequest()">▶ Send</button>
+        <span id="status" class="dim">idle</span>
+    </div>
+
+    <div id="output-box"><span class="dim">— response will stream here —</span></div>
+
+    <script>
+        const API = 'http://localhost:8080/api/v1/communicate/stream';
+
+        function newSession() {
+            document.getElementById('sessionId').value = 'test-' + Math.random().toString(36).slice(2, 7);
+        }
+
+        async function sendRequest() {
+            const btn = document.getElementById('sendBtn');
+            const out = document.getElementById('output-box');
+            const status = document.getElementById('status');
+
+            const body = {
+                sessionId:   document.getElementById('sessionId').value.trim(),
+                inputType:   document.getElementById('inputType').value,
+                outputTypes: [document.getElementById('outputType').value],
+                payload:     document.getElementById('payload').value.trim()
+            };
+
+            if (!body.payload) { status.textContent = 'payload is empty'; status.className = 'err'; return; }
+
+            btn.disabled = true;
+            out.innerHTML = '';
+            status.textContent = 'connecting...';
+            status.className = 'dim';
+
+            const start = Date.now();
+            let tokenCount = 0;
+
+            try {
+                const res = await fetch(API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+                    body: JSON.stringify(body)
+                });
+
+                if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
+
+                status.textContent = 'streaming...';
+                status.className = 'ok';
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();  // keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.startsWith('data:')) {
+                            const json = line.slice(5).trim();
+                            try {
+                                const chunk = JSON.parse(json);
+                                if (chunk.content === '[DONE]') continue;
+                                if (chunk.content) {
+                                    const span = document.createElement('span');
+                                    span.className = 'token';
+                                    span.textContent = chunk.content;
+                                    out.appendChild(span);
+                                    out.scrollTop = out.scrollHeight;
+                                    tokenCount++;
+                                }
+                            } catch (_) {}
+                        }
+                        if (line.startsWith('event:done')) {
+                            const ms = Date.now() - start;
+                            status.innerHTML = `✓ done &nbsp;|&nbsp; ${tokenCount} tokens &nbsp;|&nbsp; ${ms}ms`;
+                            status.className = 'ok';
+                        }
+                        if (line.startsWith('event:error')) {
+                            status.textContent = 'stream error — check console';
+                            status.className = 'err';
+                        }
+                    }
+                }
+            } catch (e) {
+                status.textContent = `error: ${e.message}`;
+                status.className = 'err';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        document.getElementById('payload').addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendRequest(); }
+        });
+    </script>
+</body>
+</html>

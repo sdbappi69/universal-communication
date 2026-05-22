@@ -4,22 +4,32 @@ import com.planet0088.universalCommunications.model.CommunicateRequest;
 import com.planet0088.universalCommunications.model.ContentChunk;
 import com.planet0088.universalCommunications.model.enums.OutputType;
 import com.planet0088.universalCommunications.service.ContentTranslator;
+import com.planet0088.universalCommunications.service.ConversationHistoryService;
 import com.planet0088.universalCommunications.service.SessionService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Slf4j
 @Service
 public class TextContentTranslator implements ContentTranslator {
 
     private final ChatClient chatClient;
     private final SessionService sessionService;
+    private final ConversationHistoryService conversationHistoryService;
 
     public TextContentTranslator(ChatClient.Builder chatClientBuilder,
-                                 SessionService sessionService) {
+                                 SessionService sessionService,
+                                 ConversationHistoryService conversationHistoryService) {
         this.chatClient = chatClientBuilder
                 .defaultSystem("""
                         You are an accessible communication assistant.
@@ -28,6 +38,7 @@ public class TextContentTranslator implements ContentTranslator {
                         """)
                 .build();
         this.sessionService = sessionService;
+        this.conversationHistoryService = conversationHistoryService;
     }
 
     @Override
@@ -36,37 +47,43 @@ public class TextContentTranslator implements ContentTranslator {
         StringBuilder responseAccumulator = new StringBuilder();
         AtomicLong startTime = new AtomicLong(System.currentTimeMillis());
 
-        return sessionService.recordUserTurn(request)    // write user turn first
-                .thenMany(
-                        chatClient
-                                .prompt()
-                                .user(request.payload())
-                                .stream()
-                                .content()
-                                .filter(token -> !token.isBlank())
-                                .map(token -> {
-                                    responseAccumulator.append(token);  // accumulate for final write
-                                    return new ContentChunk(
+        return sessionService.recordUserTurn(request)
+                .then(conversationHistoryService.loadHistory(request.sessionId()))
+                .flatMapMany(history -> {
+
+                    // Build full message list: history + current user message
+                    List<Message> messages = new ArrayList<>(history);
+                    messages.add(new UserMessage(request.payload()));
+
+                    log.debug("Session {}: sending {} messages to LLM (including current)",
+                            request.sessionId(), messages.size());
+
+                    return chatClient
+                            .prompt(new Prompt(messages))
+                            .stream()
+                            .content()
+                            .filter(token -> !token.isBlank())
+                            .map(token -> {
+                                responseAccumulator.append(token);
+                                return new ContentChunk(
+                                        request.sessionId(),
+                                        OutputType.TEXT,
+                                        token,
+                                        seq.getAndIncrement()
+                                );
+                            })
+                            .doOnComplete(() ->
+                                    sessionService.recordAssistantTurn(
                                             request.sessionId(),
-                                            OutputType.TEXT,
-                                            token,
-                                            seq.getAndIncrement()
-                                    );
-                                })
-                                .doOnComplete(() ->
-                                        // Fire-and-forget — subscribe() detaches from the main stream
-                                        // so a slow Mongo write never delays the SSE response
-                                        sessionService.recordAssistantTurn(
-                                                request.sessionId(),
-                                                responseAccumulator.toString(),
-                                                request,
-                                                System.currentTimeMillis() - startTime.get()
-                                        ).subscribe()
-                                )
-                                .doOnError(e ->
-                                        System.err.printf("[ContentTranslator] Stream error for session %s: %s%n",
-                                                request.sessionId(), e.getMessage())
-                                )
-                );
+                                            responseAccumulator.toString(),
+                                            request,
+                                            System.currentTimeMillis() - startTime.get()
+                                    ).subscribe()
+                            )
+                            .doOnError(e ->
+                                    log.error("Stream error for session {}: {}",
+                                            request.sessionId(), e.getMessage())
+                            );
+                });
     }
 }
