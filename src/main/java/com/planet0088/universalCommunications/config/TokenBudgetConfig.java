@@ -22,7 +22,7 @@ import lombok.Data;
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = "uacp.token")
+@ConfigurationProperties(prefix = "chat-memory.token")
 public class TokenBudgetConfig {
 
     // Max tokens to spend on conversation history

@@ -29,7 +29,7 @@ spring:
     uri: ${MONGODB_CONNECTION_STRING:mongodb://localhost:27017/universal_communications_db}
     auto-index-creation: true
 
-uacp:
+chat-memory:
   token:
     history-budget: 2000         # max tokens for conversation history
     response-budget: 1000        # max tokens for model response
