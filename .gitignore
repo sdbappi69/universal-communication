@@ -1,21 +1,40 @@
-# Maven
-target/
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
 
-# IntelliJ
+### IntelliJ ###
 .idea/
 *.iml
 
-# VS Code
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
 .vscode/
 
-# Mac
+### Mac ###
 .DS_Store
 
-# Logs
+### Maven ###
+target/
+
+### Gradle ###
+build/
+
+### Logs ###
 *.log
 
-# Env files
-.env
-
-# Java
+### Java ###
 *.class
+
+### Env ###
+.env
