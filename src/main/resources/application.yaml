@@ -10,9 +10,11 @@ spring:
   ai:
     openai:
       api-key: ${OPENAI_API_KEY}
-      chat:
-        options:
-          model: gpt-4o-mini
+      audio:
+        transcription:
+          options:
+            model: whisper-1
+            temperature: 0.0
 #  ai:
 #    openai:
 #      api-key: ${AZURE_OPENAI_KEY}
@@ -28,9 +30,3 @@ spring:
   mongodb:
     uri: ${MONGODB_CONNECTION_STRING:mongodb://localhost:27017/universal_communications_db}
     auto-index-creation: true
-
-chat-history:
-  token:
-    history-budget: 2000         # max tokens for conversation history
-    response-budget: 1000        # max tokens for model response
-    encoding-name: o200k_base    # gpt-4o-mini encoding

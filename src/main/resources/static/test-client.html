@@ -26,6 +26,17 @@
         .err { color: #f44747; }
         .dim { color: #666; }
         .token { color: #ce9178; }
+
+        /* voice upload */
+        #voice-section { display: none; }
+        #drop-zone {
+            border: 2px dashed #444; border-radius: 6px; padding: 24px;
+            text-align: center; color: #666; cursor: pointer;
+            transition: border-color 0.2s, color 0.2s; flex: 1;
+        }
+        #drop-zone.drag-over { border-color: #569cd6; color: #9cdcfe; }
+        #drop-zone.has-file { border-color: #4ec9b0; color: #4ec9b0; }
+        #drop-zone input[type=file] { display: none; }
     </style>
 </head>
 <body>
@@ -38,7 +49,7 @@
     </div>
     <div class="row">
         <label>Input Type</label>
-        <select id="inputType">
+        <select id="inputType" onchange="onInputTypeChange()">
             <option>TEXT</option>
             <option>VOICE</option>
             <option>VIDEO</option>
@@ -55,62 +66,148 @@
             <option>HAPTIC</option>
         </select>
     </div>
-    <div class="row" style="align-items:flex-start">
-        <label style="padding-top:6px">Payload</label>
-        <textarea id="payload" rows="3" placeholder="Type your message..."></textarea>
+
+    <!-- Text input section -->
+    <div id="text-section">
+        <div class="row" style="align-items:flex-start">
+            <label style="padding-top:6px">Payload</label>
+            <textarea id="payload" rows="3" placeholder="Type your message..."></textarea>
+        </div>
     </div>
+
+    <!-- Voice/file input section -->
+    <div id="voice-section">
+        <div class="row" style="align-items:flex-start">
+            <label style="padding-top:6px">Audio File</label>
+            <div id="drop-zone" onclick="document.getElementById('fileInput').click()"
+                 ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+                <input type="file" id="fileInput" accept="audio/*,video/*" onchange="onFileSelected(event)" />
+                <span id="drop-label">Drop audio file here or click to browse</span>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <label></label>
         <button id="sendBtn" onclick="sendRequest()">▶ Send</button>
         <span id="status" class="dim">idle</span>
     </div>
 
-    <div id="output-box"><span class="dim">— response will stream here —</span></div>
+    <div id="output-box"><span class="dim">— translation will appear here —</span></div>
 
     <script>
-        const API = 'http://localhost:8080/api/v1/communicate/stream';
+        const JSON_API  = 'http://localhost:8080/api/v1/communicate/stream';
+        const FILE_API  = 'http://localhost:8080/api/v1/communicate/stream/file';
+        const FILE_TYPES = new Set(['VOICE', 'VIDEO']);
+
+        let selectedFile = null;
 
         function newSession() {
             document.getElementById('sessionId').value = 'test-' + Math.random().toString(36).slice(2, 7);
         }
 
+        function onInputTypeChange() {
+            const type = document.getElementById('inputType').value;
+            const isFile = FILE_TYPES.has(type);
+            document.getElementById('text-section').style.display = isFile ? 'none' : 'block';
+            document.getElementById('voice-section').style.display = isFile ? 'block' : 'none';
+        }
+
+        // ── drag-and-drop ────────────────────────────────────────────────────────
+
+        function onDragOver(e) {
+            e.preventDefault();
+            document.getElementById('drop-zone').classList.add('drag-over');
+        }
+
+        function onDragLeave(e) {
+            document.getElementById('drop-zone').classList.remove('drag-over');
+        }
+
+        function onDrop(e) {
+            e.preventDefault();
+            const zone = document.getElementById('drop-zone');
+            zone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) setFile(file);
+        }
+
+        function onFileSelected(e) {
+            const file = e.target.files[0];
+            if (file) setFile(file);
+        }
+
+        function setFile(file) {
+            selectedFile = file;
+            const zone = document.getElementById('drop-zone');
+            zone.classList.add('has-file');
+            document.getElementById('drop-label').textContent =
+                `${file.name}  (${(file.size / 1024).toFixed(1)} KB)`;
+        }
+
+        // ── send ─────────────────────────────────────────────────────────────────
+
         async function sendRequest() {
-            const btn = document.getElementById('sendBtn');
-            const out = document.getElementById('output-box');
+            const btn    = document.getElementById('sendBtn');
+            const out    = document.getElementById('output-box');
             const status = document.getElementById('status');
-
-            const body = {
-                sessionId:   document.getElementById('sessionId').value.trim(),
-                inputType:   document.getElementById('inputType').value,
-                outputTypes: [document.getElementById('outputType').value],
-                payload:     document.getElementById('payload').value.trim()
-            };
-
-            if (!body.payload) { status.textContent = 'payload is empty'; status.className = 'err'; return; }
+            const type   = document.getElementById('inputType').value;
 
             btn.disabled = true;
             out.innerHTML = '';
             status.textContent = 'connecting...';
             status.className = 'dim';
 
-            const start = Date.now();
-            let tokenCount = 0;
+            const start      = Date.now();
+            let   tokenCount = 0;
 
             try {
-                const res = await fetch(API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-                    body: JSON.stringify(body)
-                });
+                let res;
 
-                if (!res.ok) { throw new Error(`HTTP ${res.status}`); }
+                if (FILE_TYPES.has(type)) {
+                    if (!selectedFile) {
+                        status.textContent = 'no audio file selected';
+                        status.className = 'err';
+                        btn.disabled = false;
+                        return;
+                    }
+                    const fd = new FormData();
+                    fd.append('sessionId',   document.getElementById('sessionId').value.trim());
+                    fd.append('inputType',   type);
+                    fd.append('outputTypes', document.getElementById('outputType').value);
+                    fd.append('file', selectedFile);
+
+                    status.textContent = 'transcribing...';
+                    res = await fetch(FILE_API, { method: 'POST', body: fd });
+                } else {
+                    const payload = document.getElementById('payload').value.trim();
+                    if (!payload) {
+                        status.textContent = 'payload is empty';
+                        status.className = 'err';
+                        btn.disabled = false;
+                        return;
+                    }
+                    const body = {
+                        sessionId:   document.getElementById('sessionId').value.trim(),
+                        inputType:   type,
+                        outputTypes: [document.getElementById('outputType').value],
+                        payload:     payload
+                    };
+                    res = await fetch(JSON_API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
+                        body: JSON.stringify(body)
+                    });
+                }
+
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
                 status.textContent = 'streaming...';
                 status.className = 'ok';
 
-                const reader = res.body.getReader();
+                const reader  = res.body.getReader();
                 const decoder = new TextDecoder();
-                let buffer = '';
+                let   buffer  = '';
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -118,7 +215,7 @@
 
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
-                    buffer = lines.pop();  // keep incomplete line in buffer
+                    buffer = lines.pop();
 
                     for (const line of lines) {
                         if (line.startsWith('data:')) {
