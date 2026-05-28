@@ -2,67 +2,56 @@ package com.planet0088.universalCommunications.service.impl;
 
 import com.planet0088.universalCommunications.document.SessionDocument;
 import com.planet0088.universalCommunications.document.SessionMessage;
-import com.planet0088.universalCommunications.model.CommunicateRequest;
+import com.planet0088.universalCommunications.model.enums.InputType;
+import com.planet0088.universalCommunications.model.enums.OutputType;
 import com.planet0088.universalCommunications.repository.SessionRepository;
+import com.planet0088.universalCommunications.repository.TranslationRepository;
 import com.planet0088.universalCommunications.service.SessionService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
+
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class SessionServiceImpl implements SessionService {
 
     private final SessionRepository sessionRepository;
+    private final TranslationRepository translationRepository;
 
-    public SessionServiceImpl(SessionRepository sessionRepository) {
-        this.sessionRepository = sessionRepository;
-    }
-
-    /**
-     * Upsert pattern:
-     *   - If session exists → add user turn message and save
-     *   - If session is new → create document, add user turn, save
-     */
     @Override
-    public Mono<Void> recordUserTurn(CommunicateRequest request) {
-        return sessionRepository.findById(request.sessionId())
-                .defaultIfEmpty(SessionDocument.create(request.sessionId()))
-                .flatMap(session -> {
-                    session.addMessage(
-                            SessionMessage.userTurn(
-                                    request.payload(),
-                                    request.inputType(),
-                                    request.outputTypes()
-                            )
-                    );
-                    return sessionRepository.save(session);
-                })
-                .then();             // Mono<SessionDocument> → Mono<Void>
-    }
-
-    /**
-     * Appends the fully assembled assistant response to the session.
-     * Called after the stream completes via doOnComplete in the translator.
-     */
-    @Override
-    public Mono<Void> recordAssistantTurn(String sessionId, String fullResponse,
-                                          CommunicateRequest request, long latencyMs) {
+    public Mono<Void> initSessionIfAbsent(String sessionId) {
         return sessionRepository.findById(sessionId)
-                .flatMap(session -> {
-                    session.addMessage(
-                            SessionMessage.assistantTurn(
-                                    fullResponse,
-                                    request.outputTypes(),
-                                    latencyMs
-                            )
-                    );
-                    return sessionRepository.save(session);
-                })
+                .switchIfEmpty(Mono.defer(() -> sessionRepository.save(SessionDocument.create(sessionId))))
                 .then()
                 .onErrorResume(e -> {
-                    // Never let a session write failure break the stream response
-                    System.err.printf("[SessionService] Failed to record assistant turn for session %s: %s%n",
-                            sessionId, e.getMessage());
+                    log.error("Failed to init session {}: {}", sessionId, e.getMessage());
                     return Mono.empty();
                 });
+    }
+
+    @Override
+    public Mono<Void> recordTranslation(String sessionId, InputType inputType, OutputType outputType,
+                                         String rawInput, String translatedOutput) {
+        log.info("Recording translation for session: {}", sessionId);
+        return translationRepository.save(
+                SessionMessage.builder()
+                        .sessionId(sessionId)
+                        .inputType(inputType)
+                        .outputType(outputType)
+                        .rawInput(rawInput)
+                        .translatedOutput(translatedOutput)
+                        .timestamp(Instant.now())
+                        .build()
+        )
+        .doOnSuccess(saved -> log.info("Translation saved for session: {}", sessionId))
+        .then()
+        .onErrorResume(e -> {
+            log.error("Failed to save translation for session {}: ", sessionId, e);
+            return Mono.empty();
+        });
     }
 }
