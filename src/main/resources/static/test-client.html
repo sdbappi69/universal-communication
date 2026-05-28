@@ -96,8 +96,7 @@
     <div id="output-box"><span class="dim">— translation will appear here —</span></div>
 
     <script>
-        const JSON_API  = 'http://localhost:8080/api/v1/communicate/stream';
-        const FILE_API  = 'http://localhost:8080/api/v1/communicate/stream/file';
+        const API       = '/api/v1/communicate/stream';
         const FILE_TYPES = new Set(['VOICE', 'VIDEO']);
 
         let selectedFile = null;
@@ -162,7 +161,10 @@
             let   tokenCount = 0;
 
             try {
-                let res;
+                const fd = new FormData();
+                fd.append('sessionId',   document.getElementById('sessionId').value.trim());
+                fd.append('inputType',   type);
+                fd.append('outputTypes', document.getElementById('outputType').value);
 
                 if (FILE_TYPES.has(type)) {
                     if (!selectedFile) {
@@ -171,14 +173,8 @@
                         btn.disabled = false;
                         return;
                     }
-                    const fd = new FormData();
-                    fd.append('sessionId',   document.getElementById('sessionId').value.trim());
-                    fd.append('inputType',   type);
-                    fd.append('outputTypes', document.getElementById('outputType').value);
                     fd.append('file', selectedFile);
-
                     status.textContent = 'transcribing...';
-                    res = await fetch(FILE_API, { method: 'POST', body: fd });
                 } else {
                     const payload = document.getElementById('payload').value.trim();
                     if (!payload) {
@@ -187,18 +183,10 @@
                         btn.disabled = false;
                         return;
                     }
-                    const body = {
-                        sessionId:   document.getElementById('sessionId').value.trim(),
-                        inputType:   type,
-                        outputTypes: [document.getElementById('outputType').value],
-                        payload:     payload
-                    };
-                    res = await fetch(JSON_API, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
-                        body: JSON.stringify(body)
-                    });
+                    fd.append('payload', payload);
                 }
+
+                const res = await fetch(API, { method: 'POST', body: fd });
 
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
