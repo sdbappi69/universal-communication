@@ -5,7 +5,7 @@ import com.planet0088.universalCommunications.model.ContentChunk;
 import com.planet0088.universalCommunications.model.enums.InputType;
 import com.planet0088.universalCommunications.model.enums.OutputType;
 import com.planet0088.universalCommunications.preprocessor.InputPreprocessorRouter;
-import com.planet0088.universalCommunications.service.ContentTranslator;
+import com.planet0088.universalCommunications.service.ContentConvertor;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.http.codec.multipart.FilePart;
@@ -22,12 +22,12 @@ public class CommunicateController {
 
     private static final Set<InputType> FILE_TYPES = Set.of(InputType.VOICE, InputType.VIDEO);
 
-    private final ContentTranslator contentTranslator;
+    private final ContentConvertor contentConvertor;
     private final InputPreprocessorRouter preprocessorRouter;
 
-    public CommunicateController(ContentTranslator contentTranslator,
+    public CommunicateController(ContentConvertor contentConvertor,
                                  InputPreprocessorRouter preprocessorRouter) {
-        this.contentTranslator = contentTranslator;
+        this.contentConvertor = contentConvertor;
         this.preprocessorRouter = preprocessorRouter;
     }
 
@@ -58,7 +58,7 @@ public class CommunicateController {
                     .flatMapMany(transcript -> {
                         CommunicateRequest request = new CommunicateRequest(
                                 sessionId, inputType, outputTypes, transcript);
-                        return contentTranslator.translate(request);
+                        return contentConvertor.convert(request);
                     });
             return toSse(sessionId, chunks);
         } else {
@@ -68,7 +68,7 @@ public class CommunicateController {
             }
             CommunicateRequest request = new CommunicateRequest(
                     sessionId, inputType, outputTypes, payload.trim());
-            return toSse(sessionId, contentTranslator.translate(request));
+            return toSse(sessionId, contentConvertor.convert(request));
         }
     }
 
