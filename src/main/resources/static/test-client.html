@@ -7,6 +7,8 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: monospace; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
         h2 { color: #569cd6; margin-bottom: 16px; }
+        h3 { color: #569cd6; margin-bottom: 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+        .section { border: 1px solid #2a2a2a; border-radius: 6px; padding: 14px; margin-bottom: 16px; }
         .row { display: flex; gap: 12px; margin-bottom: 10px; align-items: center; }
         label { color: #9cdcfe; width: 100px; flex-shrink: 0; }
         input, select { background: #2d2d2d; border: 1px solid #444; color: #d4d4d4;
@@ -22,6 +24,7 @@
                       padding: 14px; margin-top: 16px; min-height: 120px; max-height: 420px;
                       overflow-y: auto; white-space: pre-wrap; line-height: 1.6; font-size: 14px; }
         #status { font-size: 12px; margin-top: 8px; }
+        #auth-status { font-size: 12px; margin-left: 8px; }
         .ok { color: #4ec9b0; }
         .err { color: #f44747; }
         .dim { color: #666; }
@@ -46,55 +49,88 @@
 <body>
     <h2>⚡ UACP Stream Test Client</h2>
 
-    <div class="row">
-        <label>Session ID</label>
-        <input id="sessionId" value="test-001" />
-        <button onclick="newSession()" style="flex:0;padding:6px 12px;font-size:12px">New</button>
-    </div>
-    <div class="row">
-        <label>Input Type</label>
-        <select id="inputType" onchange="onInputTypeChange()">
-            <option>TEXT</option>
-            <option>VOICE</option>
-            <option>VIDEO</option>
-            <option>SYMBOL</option>
-            <option>TOUCH</option>
-        </select>
-    </div>
-    <div class="row">
-        <label>Output Types</label>
-        <select id="outputType">
-            <option>TEXT</option>
-            <option>VOICE</option>
-            <option>SIGN</option>
-            <option>HAPTIC</option>
-        </select>
-    </div>
-
-    <!-- Text input section -->
-    <div id="text-section">
-        <div class="row" style="align-items:flex-start">
-            <label style="padding-top:6px">Payload</label>
-            <textarea id="payload" rows="3" placeholder="Type your message..."></textarea>
+    <!-- Auth section -->
+    <div class="section">
+        <h3>Authentication</h3>
+        <div class="row">
+            <label>User ID</label>
+            <input id="userId" value="user-001" />
+        </div>
+        <div class="row">
+            <label>Tenant ID</label>
+            <input id="tenantId" value="tenant-001" />
+        </div>
+        <div class="row">
+            <label>Email</label>
+            <input id="email" value="user@example.com" />
+        </div>
+        <div class="row">
+            <label>Role</label>
+            <select id="role">
+                <option>USER</option>
+                <option>ADMIN</option>
+            </select>
+        </div>
+        <div class="row">
+            <label></label>
+            <button onclick="getToken()">🔑 Get Token</button>
+            <span id="auth-status" class="dim">no token</span>
         </div>
     </div>
 
-    <!-- Voice/file input section -->
-    <div id="voice-section">
-        <div class="row" style="align-items:flex-start">
-            <label style="padding-top:6px">Audio File</label>
-            <div id="drop-zone" onclick="document.getElementById('fileInput').click()"
-                 ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
-                <input type="file" id="fileInput" accept="audio/*,video/*" onchange="onFileSelected(event)" />
-                <span id="drop-label">Drop audio file here or click to browse</span>
+    <!-- Communicate section -->
+    <div class="section">
+        <h3>Communicate</h3>
+        <div class="row">
+            <label>Session ID</label>
+            <input id="sessionId" value="test-001" />
+            <button onclick="newSession()" style="flex:0;padding:6px 12px;font-size:12px">New</button>
+        </div>
+        <div class="row">
+            <label>Input Type</label>
+            <select id="inputType" onchange="onInputTypeChange()">
+                <option>TEXT</option>
+                <option>VOICE</option>
+                <option>VIDEO</option>
+                <option>SYMBOL</option>
+                <option>TOUCH</option>
+            </select>
+        </div>
+        <div class="row">
+            <label>Output Types</label>
+            <select id="outputType">
+                <option>TEXT</option>
+                <option>VOICE</option>
+                <option>SIGN</option>
+                <option>HAPTIC</option>
+            </select>
+        </div>
+
+        <!-- Text input section -->
+        <div id="text-section">
+            <div class="row" style="align-items:flex-start">
+                <label style="padding-top:6px">Payload</label>
+                <textarea id="payload" rows="3" placeholder="Type your message..."></textarea>
             </div>
         </div>
-    </div>
 
-    <div class="row">
-        <label></label>
-        <button id="sendBtn" onclick="sendRequest()">▶ Send</button>
-        <span id="status" class="dim">idle</span>
+        <!-- Voice/file input section -->
+        <div id="voice-section">
+            <div class="row" style="align-items:flex-start">
+                <label style="padding-top:6px">Audio File</label>
+                <div id="drop-zone" onclick="document.getElementById('fileInput').click()"
+                     ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+                    <input type="file" id="fileInput" accept="audio/*,video/*" onchange="onFileSelected(event)" />
+                    <span id="drop-label">Drop audio file here or click to browse</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <label></label>
+            <button id="sendBtn" onclick="sendRequest()">▶ Send</button>
+            <span id="status" class="dim">idle</span>
+        </div>
     </div>
 
     <div id="output-box"><span class="dim">— translation will appear here —</span></div>
@@ -105,10 +141,43 @@
 
     <script>
         const API        = '/api/v1/communicate/stream';
+        const AUTH_API   = '/auth/token';
         const FILE_TYPES = new Set(['VOICE', 'VIDEO']);
 
-        let selectedFile   = null;
-        let voiceChunks    = [];
+        let selectedFile = null;
+        let voiceChunks  = [];
+        let token        = null;
+
+        // ── auth ─────────────────────────────────────────────────────────────────
+
+        async function getToken() {
+            const authStatus = document.getElementById('auth-status');
+            authStatus.textContent = 'requesting...';
+            authStatus.className = 'dim';
+            try {
+                const res = await fetch(AUTH_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId:   document.getElementById('userId').value.trim(),
+                        tenantId: document.getElementById('tenantId').value.trim(),
+                        email:    document.getElementById('email').value.trim(),
+                        role:     document.getElementById('role').value
+                    })
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                token = data.token;
+                authStatus.textContent = `Token acquired for tenant: ${data.tenantId}`;
+                authStatus.className = 'ok';
+            } catch (e) {
+                token = null;
+                authStatus.textContent = `error: ${e.message}`;
+                authStatus.className = 'err';
+            }
+        }
+
+        // ── session ───────────────────────────────────────────────────────────────
 
         function newSession() {
             document.getElementById('sessionId').value = 'test-' + Math.random().toString(36).slice(2, 7);
@@ -161,6 +230,12 @@
             const status = document.getElementById('status');
             const type   = document.getElementById('inputType').value;
 
+            if (!token) {
+                status.textContent = 'Please get a token first';
+                status.className = 'err';
+                return;
+            }
+
             btn.disabled = true;
             out.innerHTML = '';
             voiceChunks = [];
@@ -197,7 +272,14 @@
                     fd.append('payload', payload);
                 }
 
-                const res = await fetch(API, { method: 'POST', body: fd });
+                const res = await fetch(API, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'text/event-stream'
+                    },
+                    body: fd
+                });
 
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -259,7 +341,6 @@
         }
 
         function playVoiceChunks(chunks) {
-            // Concatenate all base64 chunks, decode to blob, and play
             const combined = chunks.join('');
             const binary   = atob(combined);
             const bytes    = new Uint8Array(binary.length);

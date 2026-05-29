@@ -9,4 +9,6 @@ import reactor.core.publisher.Flux;
 public interface TranslationRepository extends ReactiveMongoRepository<SessionMessage, String> {
 
     Flux<SessionMessage> findBySessionIdOrderByTimestampAsc(String sessionId);
+
+    Flux<SessionMessage> findBySessionIdAndTenantIdOrderByTimestampAsc(String sessionId, String tenantId);
 }
