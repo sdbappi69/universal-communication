@@ -15,6 +15,10 @@ public class SessionDocument {
     @Id
     private String sessionId;
 
+    @Indexed
+    @Field("tenant_id")
+    private String tenantId;
+
     @Field("created_at")
     private Instant createdAt;
 
@@ -22,9 +26,10 @@ public class SessionDocument {
     @Indexed(expireAfterSeconds = 86400)
     private Instant lastActiveAt;
 
-    public static SessionDocument create(String sessionId) {
+    public static SessionDocument create(String sessionId, String tenantId) {
         SessionDocument doc = new SessionDocument();
         doc.sessionId = sessionId;
+        doc.tenantId = tenantId;
         doc.createdAt = Instant.now();
         doc.lastActiveAt = Instant.now();
         return doc;

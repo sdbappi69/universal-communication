@@ -27,6 +27,9 @@ public class SessionMessage {
     @Field("session_id")
     private String sessionId;
 
+    @Field("tenant_id")
+    private String tenantId;
+
     @Field("input_type")
     private InputType inputType;
 

@@ -29,3 +29,12 @@ spring:
 uacp:
   tts:
     voice: alloy
+  jwt:
+    secret: ${JWT_SECRET:uacp-local-dev-secret-key-min-32-chars-long}
+    expiration-ms: 86400000
+
+logging:
+  level:
+    com.planet0088.universalCommunications.security: DEBUG
+    com.planet0088.universalCommunications.service: DEBUG
+    org.springframework.security: DEBUG
