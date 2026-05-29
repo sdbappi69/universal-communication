@@ -37,6 +37,10 @@
         #drop-zone.drag-over { border-color: #569cd6; color: #9cdcfe; }
         #drop-zone.has-file { border-color: #4ec9b0; color: #4ec9b0; }
         #drop-zone input[type=file] { display: none; }
+
+        /* audio player */
+        #audio-section { display: none; margin-top: 12px; }
+        #audio-section audio { width: 100%; }
     </style>
 </head>
 <body>
@@ -95,11 +99,16 @@
 
     <div id="output-box"><span class="dim">— translation will appear here —</span></div>
 
+    <div id="audio-section">
+        <audio id="audioPlayer" controls></audio>
+    </div>
+
     <script>
-        const API       = '/api/v1/communicate/stream';
+        const API        = '/api/v1/communicate/stream';
         const FILE_TYPES = new Set(['VOICE', 'VIDEO']);
 
-        let selectedFile = null;
+        let selectedFile   = null;
+        let voiceChunks    = [];
 
         function newSession() {
             document.getElementById('sessionId').value = 'test-' + Math.random().toString(36).slice(2, 7);
@@ -154,6 +163,8 @@
 
             btn.disabled = true;
             out.innerHTML = '';
+            voiceChunks = [];
+            document.getElementById('audio-section').style.display = 'none';
             status.textContent = 'connecting...';
             status.className = 'dim';
 
@@ -211,7 +222,11 @@
                             try {
                                 const chunk = JSON.parse(json);
                                 if (chunk.content === '[DONE]') continue;
-                                if (chunk.content) {
+                                if (!chunk.content) continue;
+
+                                if (chunk.outputType === 'VOICE') {
+                                    voiceChunks.push(chunk.content);
+                                } else {
                                     const span = document.createElement('span');
                                     span.className = 'token';
                                     span.textContent = chunk.content;
@@ -225,6 +240,9 @@
                             const ms = Date.now() - start;
                             status.innerHTML = `✓ done &nbsp;|&nbsp; ${tokenCount} tokens &nbsp;|&nbsp; ${ms}ms`;
                             status.className = 'ok';
+                            if (voiceChunks.length > 0) {
+                                playVoiceChunks(voiceChunks);
+                            }
                         }
                         if (line.startsWith('event:error')) {
                             status.textContent = 'stream error — check console';
@@ -238,6 +256,20 @@
             } finally {
                 btn.disabled = false;
             }
+        }
+
+        function playVoiceChunks(chunks) {
+            // Concatenate all base64 chunks, decode to blob, and play
+            const combined = chunks.join('');
+            const binary   = atob(combined);
+            const bytes    = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const blob = new Blob([bytes], { type: 'audio/mpeg' });
+            const url  = URL.createObjectURL(blob);
+            const player = document.getElementById('audioPlayer');
+            player.src = url;
+            document.getElementById('audio-section').style.display = 'block';
+            player.play().catch(e => console.error('Audio play failed:', e));
         }
 
         document.getElementById('payload').addEventListener('keydown', e => {

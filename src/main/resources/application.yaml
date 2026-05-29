@@ -15,18 +15,17 @@ spring:
           options:
             model: whisper-1
             temperature: 0.0
-#  ai:
-#    openai:
-#      api-key: ${AZURE_OPENAI_KEY}
-#      base-url: ${AZURE_OPENAI_ENDPOINT}
-#      chat:
-#        options:
-#          deployment-name: gpt-4o
-#          model: gpt-4o
-#      # Azure-specific
-#      azure:
-#        enabled: true
+        speech:
+          options:
+            model: tts-1
+            voice: alloy
+            response-format: mp3
+            speed: 1.0
 
   mongodb:
     uri: ${MONGODB_CONNECTION_STRING:mongodb://localhost:27017/universal_communications_db}
     auto-index-creation: true
+
+uacp:
+  tts:
+    voice: alloy

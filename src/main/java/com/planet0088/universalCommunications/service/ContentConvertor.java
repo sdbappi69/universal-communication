@@ -19,7 +19,7 @@ import reactor.core.publisher.Flux;
  *
  * The returned Flux must never block. All I/O must be non-blocking reactive.
  */
-public interface ContentTranslator {
+public interface ContentConvertor {
 
     /**
      * Translates the incoming request into a streamed sequence of content chunks.
@@ -27,5 +27,5 @@ public interface ContentTranslator {
      * @param request the communication request containing inputType, outputTypes, payload, sessionId
      * @return a cold Flux that begins streaming once subscribed (i.e. when the SSE connection opens)
      */
-    Flux<ContentChunk> translate(CommunicateRequest request);
+    Flux<ContentChunk> convert(CommunicateRequest request);
 }
